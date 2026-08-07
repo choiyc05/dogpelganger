@@ -3,7 +3,7 @@
 미니프로젝트로 끝난 v1 을 **실제로 배포된 앱**으로 만드는 계획입니다.
 목표는 수익이 아니라 **경험**과 **살아 있는 포트폴리오**입니다.
 
-출발점은 [**v1.0.0 릴리즈**](https://github.com/choiyc05/dogpelganger/releases/tag/v1.0.0)
+출발점은 [**v1 릴리즈**](https://github.com/choiyc05/dogpelganger/releases/tag/v1)
 입니다 — 6명이 만든 미니프로젝트가 끝난 상태를 그대로 보존한 지점이고, 이 문서의
 "지금"은 전부 그 시점을 말합니다.
 
