@@ -344,7 +344,7 @@ export type Stage = {
 };
 
 /**
- * 아바타가 차지하는 자리의 크기(px). **네 단계가 모두 같습니다.**
+ * 아바타 크기의 **상한**(px). 네 단계가 모두 같습니다.
  *
  * 예전에는 단계가 오를수록 키웠는데(96 → 120 → 144), 그러면 성장할 때마다
  * 아바타 자리의 높이가 달라져서 스탯 게이지와 돌봄 버튼이 통째로 위아래로
@@ -353,8 +353,14 @@ export type Stage = {
  *
  * 자란 것은 크기가 아니라 **생김새**로 보여줍니다 — 머리·몸·귀·발의 비율은
  * constants/pet.ts의 LIFE_STAGES가 단계별로 조정합니다.
+ *
+ * ## 왜 상한인가
+ *
+ * 실제 크기는 **화면 폭의 절반**입니다(components/pet-avatar.tsx). 고정값이면
+ * 작은 폰에서는 화면을 다 먹고 태블릿에서는 허전합니다. 다만 폭이 넓다고
+ * 끝없이 커지면 캐릭터만 덩그러니 남아서, 여기서 끊습니다.
  */
-export const AVATAR_SIZE = 144;
+export const AVATAR_SIZE = 200;
 
 export const STAGES: readonly Stage[] = [
   { id: 'baby', label: '영유아기', avatarSize: AVATAR_SIZE, minExp: 0 },
@@ -727,6 +733,29 @@ export function rollWish(
 }
 
 /**
+ * **발표 시연용.** 소원을 지금 당장 띄웁니다.
+ *
+ * rollWish 는 주기(1분)·확률(60%)·스탯 조건을 다 통과해야 소원을 냅니다.
+ * 기다리지 않고 보여주려면 그 조건들을 건너뛸 길이 필요합니다.
+ *
+ * 조건을 하나 남겨둡니다 — 바라는 스탯이 이미 가득 차 있으면 채워줄 수가
+ * 없습니다. 그대로 띄우면 "씻겨달라"면서 씻기기는 거절되는 모순이 되므로,
+ * 그 자리를 비워 소원을 들어줄 수 있게 만들어 둡니다.
+ */
+export function forceWish(pet: Pet, actionId: CareActionId, now: number = Date.now()): Pet {
+  const action = CARE_ACTIONS.find((a) => a.id === actionId);
+  if (!action) return pet;
+
+  const room = Math.min(pet.stats[action.stat], GameConfig.wishAskBelow - 1);
+
+  return {
+    ...pet,
+    stats: { ...pet.stats, [action.stat]: room },
+    wish: { actionId, askedAt: now },
+  };
+}
+
+/**
  * 시간 경과를 한 번에 반영합니다.
  *
  *   스탯 감소 → 여행 판정 → 소원 갱신 → 노년기면 엔딩 확정
@@ -840,8 +869,11 @@ export function applyCare(pet: Pet, actionId: CareActionId, now: number = Date.n
     // 이 돌봄으로 청년기를 넘어섰을 수도 있으니 엔딩 확정을 한 번 더 거칩니다.
     pet: sealEnding(next, now),
     applied: true,
+    // 보너스는 **줄을 바꿔서** 붙입니다. 한 줄로 이으면 말풍선 폭을 넘겨
+    // 아무 데서나 접히는데, 그러면 반응 문장이 두 동강 난 것처럼 보입니다.
+    // 줄을 나눠 두면 "말 한 줄 + 보상 한 줄"로 읽힙니다.
     message: granted
-      ? `${action.wishGrantedReaction} (+${GameConfig.wishBonusExp} EXP)`
+      ? `${action.wishGrantedReaction}\n+${GameConfig.wishBonusExp} EXP`
       : action.reaction,
     grewInto: after.id === before.id ? null : after,
     grewFrom: after.id === before.id ? null : before,
@@ -1030,10 +1062,35 @@ export function endingOf(pet: Pet): Ending | null {
 /* ------------------------------------------------------------------ */
 
 /**
+ * 시연 도구를 보여줄지. `EXPO_PUBLIC_DEMO_TOOLS` 가 `1`/`true` 일 때만 true 입니다.
+ *
+ * ## 왜 `__DEV__` 가 아니라 환경 변수인가
+ *
+ * 두 가지를 동시에 원했습니다.
+ *
+ * 1. **APK 로 발표할 수 있어야 한다.** `__DEV__` 는 APK 에서 false 라 도구가
+ *    사라지고, 성장과 엔딩을 보여줄 방법이 없어집니다 (청년기 180 EXP,
+ *    노년기는 함께한 지 7일 — 무대에서 기다릴 수 없습니다).
+ * 2. **평소 개발 중에는 안 보여야 한다.** 시연 도구는 실제 사용자가 볼 화면이
+ *    아닙니다. 개발 서버에서 항상 떠 있으면 진짜 화면을 확인하기 어렵습니다.
+ *
+ * 그래서 켜는 조건을 `__DEV__` 에서 떼어내 환경 변수 하나로 모았습니다.
+ *   - 로컬에서 시연 도구를 쓰고 싶을 때 → `.env` 에 `EXPO_PUBLIC_DEMO_TOOLS=1`
+ *   - 발표용 APK → `eas.json` 의 `demo` 프로필 (`.env` 는 EAS 에 안 올라갑니다)
+ *   - 그 외 `preview`·`production` → 값이 없어 그대로 숨겨집니다
+ *
+ * 값을 문자열로 비교하는 이유 — Babel 이 이 자리에 **글자를 그대로** 끼워 넣기
+ * 때문에, 변수를 안 정하면 `undefined` 가 아니라 빈 문자열이 됩니다.
+ */
+export const SHOW_DEMO_TOOLS = ['1', 'true'].includes(
+  (process.env.EXPO_PUBLIC_DEMO_TOOLS ?? '').trim().toLowerCase(),
+);
+
+/**
  * 발표 시연용. 다음 단계로 즉시 넘깁니다.
  * 경험치 구간은 경험치를 채우고, 청년기에서는 시간을 앞당깁니다.
  *
- * 개발 빌드에서만 버튼이 보입니다 (src/app/game.tsx의 __DEV__ 분기).
+ * 버튼은 SHOW_DEMO_TOOLS 일 때만 보입니다 (src/app/(tabs)/game.tsx 의 분기).
  */
 export function skipToNextStage(pet: Pet, now: number = Date.now()): Pet {
   const stage = stageOf(pet, now);
