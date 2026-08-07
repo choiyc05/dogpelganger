@@ -3,6 +3,10 @@
 미니프로젝트로 끝난 v1 을 **실제로 배포된 앱**으로 만드는 계획입니다.
 목표는 수익이 아니라 **경험**과 **살아 있는 포트폴리오**입니다.
 
+출발점은 [**v1.0.0 릴리즈**](https://github.com/choiyc05/dogpelganger/releases/tag/v1.0.0)
+입니다 — 6명이 만든 미니프로젝트가 끝난 상태를 그대로 보존한 지점이고, 이 문서의
+"지금"은 전부 그 시점을 말합니다.
+
 프로젝트 소개는 [README](../README.md), 코드를 고치는 법은
 [DEVELOPMENT.md](../DEVELOPMENT.md), v1 에서 푼 문제는
 [engineering-notes.md](./engineering-notes.md) 에 있습니다.
